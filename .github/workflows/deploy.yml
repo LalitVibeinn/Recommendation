@@ -1,0 +1,37 @@
+name: Deploy Recommendation API to AWS EC2
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.8.1
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Copy files to EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+            rm -rf ~/recommendation_app
+          EOF
+
+          scp -o StrictHostKeyChecking=no -r . ubuntu@${{ secrets.EC2_HOST }}:~/recommendation_app
+
+      - name: Run Flask App
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+            sudo apt update
+            sudo apt install -y python3-pip
+            cd ~/recommendation_app
+            pip3 install -r requirements.txt
+            nohup python3 recommendation.py > output.log 2>&1 &
+          EOF
